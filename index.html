@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1720">
+<title>Morning Habits</title>
+<style>
+  :root{
+    --bg:#0f1720; --card:#18222e; --card2:#1f2b38; --line:#2a3848;
+    --text:#e8eef5; --muted:#8a9bb0; --accent:#f6b94c;
+    --good:#4cc38a; --half:#2c6b50; --bad:#ef6b6b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text)}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    padding:calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 28px);
+    -webkit-font-smoothing:antialiased;
+  }
+  main{max-width:520px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;padding:16px 0 6px}
+  h1{font-size:28px;margin:0;letter-spacing:-.3px}
+  h2{font-size:15px;color:var(--muted);font-weight:600;margin:26px 0 10px;text-transform:uppercase;letter-spacing:.6px}
+  .date{color:var(--muted);font-size:14px;margin-top:3px}
+  .icon-btn{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:12px;width:44px;height:44px;font-size:20px;cursor:pointer}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+  .stat b{display:block;font-size:24px}
+  .stat span{color:var(--muted);font-size:12px}
+
+  .banner{display:none;margin-top:14px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#2c6b50,#4cc38a);color:#06150e;font-weight:600}
+  .banner.show{display:block}
+
+  .habit{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;transition:border-color .2s}
+  .habit.done{border-color:var(--good)}
+  .habit-head{display:flex;align-items:center;gap:12px}
+  .emoji{font-size:30px;line-height:1}
+  .title{font-size:20px;font-weight:650}
+  .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .check{margin-left:auto;flex:none;width:34px;height:34px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-weight:800;color:transparent}
+  .done .check{background:var(--good);border-color:var(--good);color:#0f1720}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+  .done .actions{display:none}
+  .btn{appearance:none;border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:12px;padding:12px 10px;font-size:15px;font-weight:600;cursor:pointer;width:100%}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#1d1404}
+  .btn:disabled{opacity:.5}
+  .msg{font-size:14px;margin-top:10px;line-height:1.35}
+  .msg:empty{display:none}
+  .msg.err{color:var(--bad)} .msg.ok{color:var(--good)} .msg.info{color:var(--muted)}
+  .thumb{display:none;width:100%;max-height:190px;object-fit:cover;border-radius:12px;margin-top:12px}
+  .thumb.show{display:block}
+
+  .cal-wrap{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px}
+  .cal{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,1fr);gap:3px}
+  .cell{aspect-ratio:1;border-radius:3px;background:var(--card2)}
+  .cell.half{background:var(--half)}
+  .cell.full{background:var(--good)}
+  .cell.future{background:transparent}
+  .cell.today{outline:2px solid var(--accent);outline-offset:-1px}
+  .legend{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:12px;margin-top:10px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+
+  #settings{display:none}
+  #settings.show{display:block}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+  label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
+  input[type=text],input[type=password],input[type=number]{
+    width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px
+  }
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .hint{color:var(--muted);font-size:12px;margin-top:6px;line-height:1.4}
+  .sync{color:var(--muted);font-size:12px;text-align:center;margin-top:20px}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1 id="greeting">Good morning</h1>
+      <div class="date" id="today"></div>
+    </div>
+    <button class="icon-btn" id="gear" aria-label="Settings">⚙️</button>
+  </header>
+
+  <section id="settings">
+    <h2>Settings</h2>
+    <div class="panel">
+      <div><b>Home location</b></div>
+      <div class="hint" id="homeStatus"></div>
+      <div class="row">
+        <button class="btn primary" id="setHome">Set home to where I am now</button>
+        <button class="btn" id="clearHome">Clear home</button>
+      </div>
+      <label for="radius">Walk must be at least this far from home (meters)</label>
+      <input type="number" id="radius" min="50" step="50" inputmode="numeric">
+
+      <div style="margin-top:20px"><b>GitHub backup (optional)</b></div>
+      <label for="user">GitHub username</label>
+      <input type="text" id="user" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <label for="repo">Repository</label>
+      <input type="text" id="repo" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <label for="token">Fine-grained token (Contents: Read and write, this repo only)</label>
+      <input type="password" id="token" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div class="hint">The token stays in Safari on this phone. Your home location is never uploaded.</div>
+      <div class="row">
+        <button class="btn primary" id="save">Save</button>
+        <button class="btn" id="syncNow">Sync now</button>
+      </div>
+      <div class="msg" id="settingsMsg"></div>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="stat"><b id="streak">0</b><span>day streak</span></div>
+    <div class="stat"><b id="best">0</b><span>best streak</span></div>
+    <div class="stat"><b id="total">0</b><span>full mornings</span></div>
+  </div>
+  <div class="banner" id="banner">🌅 Both done. Morning won — see you tomorrow.</div>
+
+  <h2>Today</h2>
+  <div id="habits"></div>
+
+  <h2>Last 20 weeks</h2>
+  <div class="cal-wrap">
+    <div class="cal" id="cal"></div>
+    <div class="legend">
+      <span><i style="background:var(--card2)"></i>None</span>
+      <span><i style="background:var(--half)"></i>One</span>
+      <span><i style="background:var(--good)"></i>Both</span>
+    </div>
+  </div>
+
+  <div class="sync" id="syncStatus"></div>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- config ----------
+  const LIVE_MAX_AGE_MS = 3 * 60 * 1000;  // live photo must be < 3 minutes old
+  const GPS_MAX_ACCURACY_M = 100;          // live GPS fix must be this accurate
+  const HABITS = [
+    { id: "walk", emoji: "🚶", title: "Walk", hint: "Photo from today, taken away from home", gps: true },
+    { id: "read", emoji: "📖", title: "Read", hint: "Photo of what you're reading, from today", gps: false },
+  ];
+
+  // ---------- storage ----------
+  const LS = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
+
+  const guessGh = () => {
+    const h = location.hostname;
+    if (!h.endsWith(".github.io")) return { user: "", repo: "morning-habits" };
+    const seg = location.pathname.split("/").filter(Boolean)[0];
+    return { user: h.split(".")[0], repo: seg && !seg.includes(".") ? seg : "morning-habits" };
+  };
+
+  let settings = Object.assign(
+    { homeLat: null, homeLon: null, radius: 200, token: "" , ...guessGh() },
+    LS.get("mh_settings", {})
+  );
+  let log = LS.get("mh_log", { days: {} });
+  if (!log.days) log = { days: {} };
+
+  const saveSettings = () => LS.set("mh_settings", settings);
+  const saveLog = () => LS.set("mh_log", log);
+
+  // ---------- helpers ----------
+  const $ = (s) => document.querySelector(s);
+  const pad = (n) => String(n).padStart(2, "0");
+  const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const timeStr = (d = new Date()) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const keyToDate = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d, 12); };
+  const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+
+  function distanceM(lat1, lon1, lat2, lon2) {
+    const R = 6371000, rad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  function getPosition() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject(new Error("This browser can't get your location."));
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve(p.coords),
+        (e) => reject(new Error(e.code === 1
+          ? "Location permission denied. In Safari tap aA → Website Settings → Location → Allow."
+          : "Couldn't get your location. Step outside and try again.")),
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+      );
+    });
+  }
+
+  // ---------- EXIF reader (JPEG and HEIC) ----------
+  function readExif(buf) {
+    try {
+      const u8 = new Uint8Array(buf), dv = new DataView(buf);
+      let t = -1;
+      for (let i = 0; i < u8.length - 10; i++) {
+        if (u8[i] === 0x45 && u8[i+1] === 0x78 && u8[i+2] === 0x69 && u8[i+3] === 0x66 && u8[i+4] === 0 && u8[i+5] === 0) {
+          const j = i + 6;
+          if ((u8[j] === 0x49 && u8[j+1] === 0x49 && u8[j+2] === 0x2A && u8[j+3] === 0) ||
+              (u8[j] === 0x4D && u8[j+1] === 0x4D && u8[j+2] === 0 && u8[j+3] === 0x2A)) { t = j; break; }
+        }
+      }
+      if (t < 0) return null;
+      const le = u8[t] === 0x49;
+      const u16 = (o) => dv.getUint16(t + o, le);
+      const u32 = (o) => dv.getUint32(t + o, le);
+      const SIZES = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1, 9: 4, 10: 8 };
+
+      const readIFD = (off) => {
+        const tags = {};
+        if (!off || t + off + 2 > u8.length) return tags;
+        const n = u16(off);
+        for (let k = 0; k < n; k++) {
+          const e = off + 2 + k * 12;
+          if (t + e + 12 > u8.length) break;
+          const tag = u16(e), type = u16(e + 2), count = u32(e + 4);
+          const vo = (SIZES[type] || 1) * count > 4 ? u32(e + 8) : e + 8;
+          tags[tag] = { type, count, vo };
+        }
+        return tags;
+      };
+      const val = (x) => {
+        if (!x) return undefined;
+        const { type, count, vo } = x;
+        if (type === 2) { let s = ""; for (let i = 0; i < count; i++) { const c = u8[t + vo + i]; if (!c) break; s += String.fromCharCode(c); } return s; }
+        if (type === 5) { const out = []; for (let i = 0; i < count; i++) { const n = u32(vo + i * 8), d = u32(vo + i * 8 + 4); out.push(d ? n / d : 0); } return out; }
+        if (type === 3) return u16(vo);
+        if (type === 4) return u32(vo);
+        return undefined;
+      };
+
+      const ifd0 = readIFD(u32(4));
+      const exif = ifd0[0x8769] ? readIFD(val(ifd0[0x8769])) : {};
+      const gps = ifd0[0x8825] ? readIFD(val(ifd0[0x8825])) : {};
+
+      const ds = val(exif[0x9003]) || val(exif[0x9004]) || val(ifd0[0x0132]);
+      let date = null;
+      const m = ds && ds.match(/(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+      if (m) date = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+
+      let lat = null, lon = null;
+      const la = val(gps[2]), lo = val(gps[4]);
+      if (la && lo && la.length === 3 && lo.length === 3) {
+        lat = la[0] + la[1] / 60 + la[2] / 3600;
+        lon = lo[0] + lo[1] / 60 + lo[2] / 3600;
+        if (val(gps[1]) === "S") lat = -lat;
+        if (val(gps[3]) === "W") lon = -lon;
+        if (lat === 0 && lon === 0) lat = lon = null;
+      }
+      return { date, lat, lon };
+    } catch { return null; }
+  }
+
+  // ---------- verification ----------
+  function homeSet() { return settings.homeLat != null && settings.homeLon != null; }
+
+  async function verifyLive(habit, file) {
+    const age = Date.now() - file.lastModified;
+    if (!(age >= -60000 && age <= LIVE_MAX_AGE_MS)) {
+      throw new Error(`That photo is ${Math.round(age / 60000)} min old. Live photos have to be under 3 minutes old.`);
+    }
+    const ex = readExif(await file.arrayBuffer());
+    if (ex && ex.date && dayKey(ex.date) !== dayKey()) throw new Error("That photo isn't from today.");
+    const result = { method: "live" };
+    if (habit.gps) {
+      setMsg(habit.id, "info", "Checking your location…");
+      const c = await getPosition();
+      if (c.accuracy > GPS_MAX_ACCURACY_M) {
+        throw new Error(`GPS is only accurate to ${Math.round(c.accuracy)} m (needs ${GPS_MAX_ACCURACY_M} m). Step outside and try again.`);
+      }
+      const d = distanceM(settings.homeLat, settings.homeLon, c.latitude, c.longitude);
+      if (d < settings.radius) throw new Error(`You're ${Math.round(d)} m from home. Walk at least ${settings.radius} m away, then try again.`);
+      result.distance_m = Math.round(d);
+    }
+    return result;
+  }
+
+  async function verifyLibrary(habit, file) {
+    const ex = readExif(await file.arrayBuffer());
+    if (!ex || !ex.date) {
+      throw new Error("No photo data found. Screenshots, downloads and edited images are rejected. Use “Take photo now”.");
+    }
+    if (dayKey(ex.date) !== dayKey()) {
+      throw new Error(`That photo is from ${ex.date.toLocaleDateString()}. It has to be from today.`);
+    }
+    if (ex.date.getTime() > Date.now() + 5 * 60000) throw new Error("That photo's date is in the future.");
+    const result = { method: "library" };
+    if (habit.gps) {
+      if (ex.lat == null) {
+        throw new Error("This photo has no GPS data (iPhone often strips it when picking from the library). Use “Take photo now” instead.");
+      }
+      const d = distanceM(settings.homeLat, settings.homeLon, ex.lat, ex.lon);
+      if (d < settings.radius) throw new Error(`That photo was taken ${Math.round(d)} m from home. It needs to be at least ${settings.radius} m away.`);
+      result.distance_m = Math.round(d);
+    }
+    return result;
+  }
+
+  async function handleFile(habit, file, mode) {
+    if (!file) return;
+    if (habit.gps && !homeSet()) {
+      setMsg(habit.id, "err", "Set your home location first: ⚙️ Settings → Set home (do it while you're at home).");
+      return;
+    }
+    const card = document.getElementById("h-" + habit.id);
+    card.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    setMsg(habit.id, "info", "Checking photo…");
+    const img = card.querySelector(".thumb");
+    try {
+      const res = await (mode === "live" ? verifyLive(habit, file) : verifyLibrary(habit, file));
+      img.src = URL.createObjectURL(file);
+      img.classList.add("show");
+      const k = dayKey();
+      log.days[k] = log.days[k] || {};
+      log.days[k][habit.id] = { time: timeStr(), ...res };
+      saveLog();
+      setMsg(habit.id, "ok", "Verified ✓");
+      if (navigator.vibrate) navigator.vibrate(30);
+      render();
+      push();
+    } catch (e) {
+      setMsg(habit.id, "err", e.message || String(e));
+    } finally {
+      card.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    }
+  }
+
+  // ---------- GitHub sync ----------
+  const b64encode = (s) => { const b = new TextEncoder().encode(s); let bin = ""; b.forEach((x) => (bin += String.fromCharCode(x))); return btoa(bin); };
+  const b64decode = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, "")), (c) => c.charCodeAt(0)));
+
+  function mergeLogs(a, b) {
+    const out = { days: {} };
+    for (const src of [a, b]) {
+      for (const [k, v] of Object.entries((src && src.days) || {})) out.days[k] = { ...(out.days[k] || {}), ...v };
+    }
+    return out;
+  }
+
+  function apiUrl() {
+    return `https://api.github.com/repos/${encodeURIComponent(settings.user)}/${encodeURIComponent(settings.repo)}/contents/data/log.json`;
+  }
+  function headers() {
+    const h = { Accept: "application/vnd.github+json" };
+    if (settings.token) h.Authorization = `Bearer ${settings.token}`;
+    return h;
+  }
+
+  async function pull() {
+    const r = await fetch(apiUrl(), { headers: headers(), cache: "no-store" });
+    if (r.status === 404) return { data: { days: {} }, sha: null };
+    if (!r.ok) throw new Error(`GitHub ${r.status}`);
+    const j = await r.json();
+    return { data: JSON.parse(b64decode(j.content) || "{}"), sha: j.sha };
+  }
+
+  async function syncFromGitHub() {
+    if (!settings.user || !settings.repo) { setSync("Saved on this phone only."); return; }
+    try {
+      setSync("Syncing…");
+      const { data } = await pull();
+      log = mergeLogs(data, log);
+      saveLog(); render();
+      setSync(settings.token ? "Synced with GitHub." : "History loaded from GitHub. Add a token in Settings to back up.");
+    } catch (e) {
+      setSync("Offline — saved on this phone. " + (e.message || ""));
+    }
+  }
+
+  async function push() {
+    if (!settings.user || !settings.repo || !settings.token) { setSync("Saved on this phone only."); return; }
+    setSync("Backing up…");
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { data, sha } = await pull();
+        log = mergeLogs(data, log);
+        saveLog();
+        const body = { message: `Morning log ${dayKey()}`, content: b64encode(JSON.stringify(log, null, 2) + "\n") };
+        if (sha) body.sha = sha;
+        const r = await fetch(apiUrl(), { method: "PUT", headers: { ...headers(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (r.ok) { setSync(`Backed up to GitHub at ${timeStr()}.`); return true; }
+        if (r.status === 401 || r.status === 403) { setSync("GitHub rejected the token. Check it in Settings."); return false; }
+        if (r.status !== 409 && r.status !== 422) throw new Error(`GitHub ${r.status}`);
+      } catch (e) {
+        if (attempt === 1) { setSync("Backup failed — saved on this phone. " + (e.message || "")); return false; }
+      }
+    }
+    return false;
+  }
+
+  // ---------- stats ----------
+  const complete = (k) => { const d = log.days[k]; return !!(d && d.walk && d.read); };
+
+  function currentStreak() {
+    const d = new Date();
+    if (!complete(dayKey(d))) d.setDate(d.getDate() - 1);
+    let n = 0;
+    while (complete(dayKey(d))) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+
+  function bestStreak() {
+    const keys = Object.keys(log.days).filter(complete).sort();
+    let best = 0, run = 0, prev = null;
+    for (const k of keys) {
+      const d = keyToDate(k);
+      run = prev && Math.round((d - prev) / 86400000) === 1 ? run + 1 : 1;
+      best = Math.max(best, run); prev = d;
+    }
+    return best;
+  }
+
+  // ---------- UI ----------
+  function setMsg(id, kind, text) {
+    const el = document.querySelector(`#h-${id} .msg`);
+    el.className = "msg " + kind; el.textContent = text;
+  }
+  function setSync(t) { $("#syncStatus").textContent = t; }
+
+  function buildHabits() {
+    const wrap = $("#habits");
+    for (const h of HABITS) {
+      const card = document.createElement("div");
+      card.className = "habit"; card.id = "h-" + h.id;
+      card.innerHTML = `
+        <div class="habit-head">
+          <div class="emoji">${h.emoji}</div>
+          <div><div class="title">${h.title}</div><div class="sub"></div></div>
+          <div class="check">✓</div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" data-mode="live">📷 Take photo now</button>
+          <button class="btn" data-mode="library">🖼️ Pick today's photo</button>
+        </div>
+        <input type="file" accept="image/*" capture="environment" data-mode="live" hidden>
+        <input type="file" accept="image/*" data-mode="library" hidden>
+        <img class="thumb" alt="">
+        <div class="msg"></div>`;
+      card.querySelectorAll("button[data-mode]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const inp = card.querySelector(`input[data-mode="${b.dataset.mode}"]`);
+          inp.value = ""; inp.click();
+        }));
+      card.querySelectorAll("input[type=file]").forEach((inp) =>
+        inp.addEventListener("change", () => handleFile(h, inp.files[0], inp.dataset.mode)));
+      wrap.appendChild(card);
+    }
+  }
+
+  function render() {
+    const now = new Date(), k = dayKey(now), today = log.days[k] || {};
+    const hr = now.getHours();
+    $("#greeting").textContent = hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
+    $("#today").textContent = fmtDay(now);
+
+    for (const h of HABITS) {
+      const card = document.getElementById("h-" + h.id), e = today[h.id];
+      card.classList.toggle("done", !!e);
+      card.querySelector(".sub").textContent = e
+        ? `Done at ${e.time}${e.distance_m != null ? ` · ${e.distance_m} m from home` : ""}`
+        : h.hint;
+    }
+
+    $("#streak").textContent = currentStreak();
+    $("#best").textContent = bestStreak();
+    $("#total").textContent = Object.keys(log.days).filter(complete).length;
+    $("#banner").classList.toggle("show", complete(k));
+
+    // 20-week calendar, columns = weeks (Sun→Sat)
+    const cal = $("#cal"); cal.innerHTML = "";
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+    start.setDate(start.getDate() - start.getDay() - 19 * 7);
+    for (let i = 0; i < 140; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const dk = dayKey(d), e = log.days[dk] || {};
+      const n = (e.walk ? 1 : 0) + (e.read ? 1 : 0);
+      const c = document.createElement("div");
+      c.className = "cell" + (d > now && dk !== k ? " future" : n === 2 ? " full" : n === 1 ? " half" : "") + (dk === k ? " today" : "");
+      c.title = `${d.toLocaleDateString()} — ${n}/2`;
+      cal.appendChild(c);
+    }
+
+    $("#homeStatus").textContent = homeSet()
+      ? "Home is set ✓ (stored only on this phone)."
+      : "Not set yet. Do this once while you're at home.";
+  }
+
+  function fillSettings() {
+    $("#radius").value = settings.radius;
+    $("#user").value = settings.user || "";
+    $("#repo").value = settings.repo || "";
+    $("#token").value = settings.token || "";
+  }
+
+  function settingsMsg(kind, t) { const el = $("#settingsMsg"); el.className = "msg " + kind; el.textContent = t; }
+
+  $("#gear").addEventListener("click", () => { fillSettings(); $("#settings").classList.toggle("show"); });
+
+  $("#setHome").addEventListener("click", async () => {
+    settingsMsg("info", "Getting your location…");
+    try {
+      const c = await getPosition();
+      settings.homeLat = c.latitude; settings.homeLon = c.longitude; saveSettings();
+      settingsMsg("ok", `Home saved (accuracy ±${Math.round(c.accuracy)} m).`);
+      render();
+    } catch (e) { settingsMsg("err", e.message); }
+  });
+
+  $("#clearHome").addEventListener("click", () => {
+    settings.homeLat = settings.homeLon = null; saveSettings(); render();
+    settingsMsg("info", "Home cleared.");
+  });
+
+  $("#save").addEventListener("click", async () => {
+    const r = parseInt($("#radius").value, 10);
+    settings.radius = Number.isFinite(r) && r >= 50 ? r : 200;
+    settings.user = $("#user").value.trim();
+    settings.repo = $("#repo").value.trim() || "morning-habits";
+    settings.token = $("#token").value.trim();
+    saveSettings();
+    settingsMsg("ok", "Saved.");
+    await syncFromGitHub();
+    if (settings.token) push();
+  });
+
+  $("#syncNow").addEventListener("click", async () => {
+    await syncFromGitHub();
+    if (settings.token) await push();
+    settingsMsg("info", $("#syncStatus").textContent);
+  });
+
+  // re-render when the page comes back (e.g. Shortcut reopens it the next morning)
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { render(); syncFromGitHub(); } });
+
+  buildHabits();
+  render();
+  syncFromGitHub();
+})();
+</script>
+</body>
+</html>
